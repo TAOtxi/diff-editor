@@ -1,0 +1,68 @@
+name: 构建并部署到 GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  # 允许在 Actions 页面手动触发一次部署
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Pages 只有一个生产环境，同一时间只跑一个部署。
+# 不取消进行中的部署，避免半途中断留下不完整的站点。
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: 构建
+    runs-on: ubuntu-latest
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v6
+
+      # pnpm/setup 会按 package.json 的 packageManager 字段装 pnpm，
+      # 顺带装好 Node 运行时，并自动执行 pnpm install。
+      - name: 安装 pnpm 与 Node
+        uses: pnpm/setup@v1
+        with:
+          runtime: node@24
+          cache: true
+
+      # 输出 base_path：项目页为 /<仓库名>，用户或组织页为空
+      - name: 读取 Pages 配置
+        id: pages
+        uses: actions/configure-pages@v5
+
+      - name: 代码检查
+        run: pnpm lint
+
+      - name: 单元测试
+        run: pnpm test
+
+      # build 脚本自带 tsc -b，类型错误会在这里拦住部署
+      - name: 构建
+        run: pnpm build
+        env:
+          BASE_PATH: ${{ steps.pages.outputs.base_path }}
+
+      - name: 上传产物
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: dist
+
+  deploy:
+    name: 部署
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: 发布到 Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
