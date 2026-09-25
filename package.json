@@ -4,7 +4,13 @@
   "private": true,
   "type": "module",
   "description": "本地双文件差异对比与合并编辑器",
+  "packageManager": "pnpm@11.24.0",
+  "engines": {
+    "node": ">=20",
+    "pnpm": ">=11"
+  },
   "scripts": {
+    "preinstall": "node scripts/only-pnpm.mjs",
     "dev": "vite",
     "build": "tsc -b && vite build",
     "preview": "vite preview",

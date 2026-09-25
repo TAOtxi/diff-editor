@@ -1,0 +1,4 @@
+# pnpm 11 起默认拦截依赖的安装脚本，需要在 allowBuilds 里逐个放行。
+# esbuild 的 postinstall 负责落地平台二进制，vite 依赖它。
+allowBuilds:
+  esbuild: true

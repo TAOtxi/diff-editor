@@ -6,11 +6,14 @@
 
 ## 快速开始
 
+包管理器为 pnpm（版本由 `package.json` 的 `packageManager` 字段锁定，`corepack enable` 后会自动切到对应版本）。`preinstall` 钩子会拦截 npm / yarn 安装，避免出现第二份锁文件。
+
 ```bash
-npm install
-npm run dev      # http://localhost:5273
-npm run check    # tsc + eslint + vitest
-npm run build    # 产物在 dist/
+corepack enable
+pnpm install
+pnpm dev         # http://localhost:5273
+pnpm check       # tsc + eslint + vitest
+pnpm build       # 产物在 dist/
 ```
 
 ## 核心模型
@@ -99,7 +102,7 @@ src/
 块操作的核心不变式（执行后差异数恰好减一）在 `operations.test.ts` 中对四种操作 × 七种场景逐一断言。
 
 ```bash
-npm run coverage   # 引擎层覆盖率
+pnpm coverage   # 引擎层覆盖率
 ```
 
 ## 性能

@@ -4,3 +4,7 @@ coverage/
 *.local
 .DS_Store
 .vite/
+
+# 其他包管理器的锁文件，本项目只认 pnpm-lock.yaml
+package-lock.json
+yarn.lock
