@@ -1,12 +1,17 @@
 import { useEffect, useRef, useState } from 'react';
 import { InlineText } from './InlineText';
 import type { InlineSegment } from '../core/types';
+import type { HighlightLanguage, HighlightToken } from '../core/highlight';
 
 interface LineCellProps {
   /** 行号，null 表示空占位行。 */
   lineNumber: number | null;
   text: string | null;
   segments: InlineSegment[] | undefined;
+  /** 整行语法高亮片段，与 text 下标对应的行一致。 */
+  tokens: HighlightToken[] | undefined;
+  /** 语法高亮语言，用于行内差异段的二次着色。 */
+  language: HighlightLanguage | undefined;
   /** 双击提交单行编辑。 */
   onCommit: (lineNumber: number, value: string) => void;
   editable: boolean;
@@ -18,7 +23,15 @@ interface LineCellProps {
  * 双击进入单行编辑：Enter 提交，Esc 取消，失焦提交。
  * 这样常见的「改一个字」不必切换到整篇编辑模式。
  */
-export function LineCell({ lineNumber, text, segments, onCommit, editable }: LineCellProps) {
+export function LineCell({
+  lineNumber,
+  text,
+  segments,
+  tokens,
+  language,
+  onCommit,
+  editable,
+}: LineCellProps) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
@@ -76,7 +89,7 @@ export function LineCell({ lineNumber, text, segments, onCommit, editable }: Lin
           onDoubleClick={startEditing}
           title={editable ? '双击编辑本行' : undefined}
         >
-          <InlineText segments={segments} fallback={text} />
+          <InlineText segments={segments} fallback={text} tokens={tokens} language={language} />
         </span>
       )}
     </div>

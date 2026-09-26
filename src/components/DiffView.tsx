@@ -3,6 +3,7 @@ import { BlockActions } from './BlockActions';
 import { LineCell } from './LineCell';
 import type { Row } from '../view/rows';
 import type { BlockOperation, DiffBlock, Side } from '../core/types';
+import type { HighlightLanguage, HighlightToken } from '../core/highlight';
 
 /** 单行高度，px。固定行高换取简单可靠的虚拟滚动计算。 */
 export const ROW_HEIGHT = 22;
@@ -21,6 +22,11 @@ interface DiffViewProps {
   onExpand: (blockIndex: number) => void;
   /** 需要滚动到的行下标，变化时触发滚动。 */
   scrollToRow: number | null;
+  /** 两侧语法高亮结果（每行 token 数组），下标与文档行一致。 */
+  leftHighlight: HighlightToken[][] | undefined;
+  rightHighlight: HighlightToken[][] | undefined;
+  leftLanguage: HighlightLanguage | undefined;
+  rightLanguage: HighlightLanguage | undefined;
 }
 
 export function DiffView({
@@ -33,6 +39,10 @@ export function DiffView({
   onEditLine,
   onExpand,
   scrollToRow,
+  leftHighlight,
+  rightHighlight,
+  leftLanguage,
+  rightLanguage,
 }: DiffViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [scrollTop, setScrollTop] = useState(0);
@@ -133,6 +143,8 @@ export function DiffView({
                   lineNumber={row.leftLine}
                   text={row.leftLine !== null ? (leftLines[row.leftLine] ?? '') : null}
                   segments={row.inline?.left}
+                  tokens={row.leftLine !== null ? leftHighlight?.[row.leftLine] : undefined}
+                  language={leftLanguage}
                   onCommit={(line, value) => onEditLine('left', line, value)}
                   editable
                 />
@@ -153,6 +165,8 @@ export function DiffView({
                   lineNumber={row.rightLine}
                   text={row.rightLine !== null ? (rightLines[row.rightLine] ?? '') : null}
                   segments={row.inline?.right}
+                  tokens={row.rightLine !== null ? rightHighlight?.[row.rightLine] : undefined}
+                  language={rightLanguage}
                   onCommit={(line, value) => onEditLine('right', line, value)}
                   editable
                 />

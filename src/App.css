@@ -242,6 +242,61 @@
   border-radius: 2px;
 }
 
+/* 语法高亮 token 配色 */
+.tok-keyword {
+  color: var(--syn-keyword);
+}
+
+.tok-string {
+  color: var(--syn-string);
+}
+
+.tok-number {
+  color: var(--syn-number);
+}
+
+.tok-comment {
+  color: var(--syn-comment);
+  font-style: italic;
+}
+
+.tok-function {
+  color: var(--syn-function);
+}
+
+.tok-type {
+  color: var(--syn-type);
+}
+
+.tok-property {
+  color: var(--syn-property);
+}
+
+.tok-operator {
+  color: var(--syn-operator);
+}
+
+.tok-punctuation {
+  color: var(--syn-punctuation);
+}
+
+.tok-tag {
+  color: var(--syn-tag);
+}
+
+.tok-attr {
+  color: var(--syn-attr);
+}
+
+.tok-heading {
+  color: var(--syn-heading);
+  font-weight: 600;
+}
+
+.tok-emphasis {
+  color: var(--syn-emphasis);
+}
+
 /* 中缝与块操作 */
 .middle {
   display: flex;

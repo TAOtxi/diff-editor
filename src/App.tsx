@@ -16,6 +16,7 @@ import {
 } from './fs/fileAccess';
 import { useDiff } from './hooks/useDiff';
 import { useNavigation } from './hooks/useNavigation';
+import { useHighlight, type HighlightMode } from './hooks/useHighlight';
 import { canRedo, canUndo } from './state/history';
 import { createInitialState, hasUnsavedChanges, reducer } from './state/store';
 import { buildRows, findRowForBlock } from './view/rows';
@@ -32,6 +33,8 @@ export default function App() {
   const [dialog, setDialog] = useState<DialogState>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [scrollToRow, setScrollToRow] = useState<number | null>(null);
+  /** 语法高亮模式：auto 跟随文件名推断，off 关闭。 */
+  const [highlightMode, setHighlightMode] = useState<HighlightMode>('auto');
   /** 被用户手动展开的 equal 块，不再折叠。 */
   const [expanded, setExpanded] = useState<Set<number>>(new Set());
 
@@ -43,6 +46,9 @@ export default function App() {
 
   const supported = useMemo(() => isFileSystemAccessSupported(), []);
   const { result, computing } = useDiff(state.left.lines, state.right.lines, state.options);
+
+  const leftHighlight = useHighlight(state.left.lines, state.left.name, highlightMode);
+  const rightHighlight = useHighlight(state.right.lines, state.right.name, highlightMode);
 
   const displayRows = useMemo(
     () =>
@@ -326,9 +332,11 @@ export default function App() {
           options={state.options}
           keepBoth={state.keepBoth}
           contextLines={state.contextLines}
+          highlightMode={highlightMode}
           onOptions={(options) => dispatch({ type: 'setOptions', options })}
           onKeepBoth={(config) => dispatch({ type: 'setKeepBoth', config })}
           onContextLines={(value) => dispatch({ type: 'setContextLines', value })}
+          onHighlightMode={setHighlightMode}
           onClose={() => setOptionsOpen(false)}
         />
       )}
@@ -357,6 +365,10 @@ export default function App() {
               setExpanded((prev) => new Set(prev).add(blockIndex))
             }
             scrollToRow={scrollToRow}
+            leftHighlight={leftHighlight.active ? leftHighlight.lines : undefined}
+            rightHighlight={rightHighlight.active ? rightHighlight.lines : undefined}
+            leftLanguage={leftHighlight.active ? leftHighlight.language : undefined}
+            rightLanguage={rightHighlight.active ? rightHighlight.language : undefined}
           />
         </>
       )}

@@ -1,12 +1,15 @@
 import type { CompareOptions, KeepBothConfig } from '../core/types';
+import type { HighlightMode } from '../hooks/useHighlight';
 
 interface OptionsPanelProps {
   options: CompareOptions;
   keepBoth: KeepBothConfig;
   contextLines: number | null;
+  highlightMode: HighlightMode;
   onOptions: (patch: Partial<CompareOptions>) => void;
   onKeepBoth: (patch: Partial<KeepBothConfig>) => void;
   onContextLines: (value: number | null) => void;
+  onHighlightMode: (mode: HighlightMode) => void;
   onClose: () => void;
 }
 
@@ -14,9 +17,11 @@ export function OptionsPanel({
   options,
   keepBoth,
   contextLines,
+  highlightMode,
   onOptions,
   onKeepBoth,
   onContextLines,
+  onHighlightMode,
   onClose,
 }: OptionsPanelProps) {
   return (
@@ -121,6 +126,16 @@ export function OptionsPanel({
             <option value="3">3 行</option>
             <option value="5">5 行</option>
             <option value="10">10 行</option>
+          </select>
+        </label>
+        <label className="inline-field">
+          语法高亮
+          <select
+            value={highlightMode}
+            onChange={(e) => onHighlightMode(e.target.value as HighlightMode)}
+          >
+            <option value="auto">跟随文件类型</option>
+            <option value="off">关闭</option>
           </select>
         </label>
       </fieldset>

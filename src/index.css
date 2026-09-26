@@ -19,6 +19,21 @@
   --accent: #0969da;
   --active-outline: #0969da;
 
+  /* 语法高亮配色（浅色主题） */
+  --syn-keyword: #cf222e;
+  --syn-string: #0a3069;
+  --syn-number: #0550ae;
+  --syn-comment: #6a737d;
+  --syn-function: #8250df;
+  --syn-type: #953800;
+  --syn-property: #0550ae;
+  --syn-operator: #1f2328;
+  --syn-punctuation: #57606a;
+  --syn-tag: #116329;
+  --syn-attr: #953800;
+  --syn-heading: #1f2328;
+  --syn-emphasis: #953800;
+
   --mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
 }
 
