@@ -8,6 +8,10 @@ interface ToolbarProps {
   canUndo: boolean;
   canRedo: boolean;
   optionsOpen: boolean;
+  /** 主区域当前是否显示文件夹清单。 */
+  folderView: boolean;
+  /** 两侧目录是否都已选好。 */
+  folderReady: boolean;
   onPrev: () => void;
   onNext: () => void;
   onFirst: () => void;
@@ -16,6 +20,7 @@ interface ToolbarProps {
   onRedo: () => void;
   onToggleOptions: () => void;
   onSwap: () => void;
+  onToggleFolderView: () => void;
   onTakeAllLeft: () => void;
   onTakeAllRight: () => void;
 }
@@ -28,6 +33,8 @@ export function Toolbar({
   canUndo,
   canRedo,
   optionsOpen,
+  folderView,
+  folderReady,
   onPrev,
   onNext,
   onFirst,
@@ -36,6 +43,7 @@ export function Toolbar({
   onRedo,
   onToggleOptions,
   onSwap,
+  onToggleFolderView,
   onTakeAllLeft,
   onTakeAllRight,
 }: ToolbarProps) {
@@ -99,6 +107,14 @@ export function Toolbar({
           title="对比选项"
         >
           选项
+        </button>
+        <button
+          type="button"
+          onClick={onToggleFolderView}
+          aria-pressed={folderView}
+          title={folderReady ? '切换文件夹清单' : '选择两个文件夹进行批量对比'}
+        >
+          文件夹
         </button>
       </div>
     </div>

@@ -1,9 +1,12 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { DiffView } from './components/DiffView';
 import { FileHeader } from './components/FileHeader';
+import { FolderPanel } from './components/FolderPanel';
 import { OptionsPanel } from './components/OptionsPanel';
 import { TextDialog } from './components/TextDialog';
 import { Toolbar } from './components/Toolbar';
+import { DEFAULT_PAIR_FILTER, type FilePair, type PairFilter } from './core/folder';
+import { DEFAULT_TEXT_META } from './core/text';
 import { joinLines, splitLines } from './core/text';
 import type { BlockOperation, DiffBlock, Side } from './core/types';
 import {
@@ -15,6 +18,7 @@ import {
   writeToHandle,
 } from './fs/fileAccess';
 import { useDiff } from './hooks/useDiff';
+import { useFolderCompare } from './hooks/useFolderCompare';
 import { useNavigation } from './hooks/useNavigation';
 import { useHighlight, type HighlightMode } from './hooks/useHighlight';
 import { canRedo, canUndo } from './state/history';
@@ -27,6 +31,9 @@ type DialogState =
   | { kind: 'editAll'; side: Side }
   | null;
 
+/** 主区域显示什么：文件差异，还是文件夹对比清单。 */
+type ViewMode = 'diff' | 'folder';
+
 export default function App() {
   const [state, dispatch] = useReducer(reducer, undefined, createInitialState);
   const [optionsOpen, setOptionsOpen] = useState(false);
@@ -37,6 +44,10 @@ export default function App() {
   const [highlightMode, setHighlightMode] = useState<HighlightMode>('auto');
   /** 被用户手动展开的 equal 块，不再折叠。 */
   const [expanded, setExpanded] = useState<Set<number>>(new Set());
+  const [view, setView] = useState<ViewMode>('diff');
+  const [pairFilter, setPairFilter] = useState<PairFilter>(DEFAULT_PAIR_FILTER);
+  /** 当前从文件夹清单打开的那一对文件的相对路径。 */
+  const [activePairPath, setActivePairPath] = useState<string | null>(null);
 
   // 文件句柄不放进 reducer state：它不可序列化，也不该进撤销历史
   const handlesRef = useRef<Record<Side, FileSystemFileHandle | null>>({
@@ -86,6 +97,8 @@ export default function App() {
     window.setTimeout(() => setMessage(null), 4000);
   }, []);
 
+  const folder = useFolderCompare(notify);
+
   const loadFile = useCallback(
     async (side: Side, file: File, handle: FileSystemFileHandle | null, force = false) => {
       try {
@@ -124,6 +137,45 @@ export default function App() {
       }
     },
     [loadFile, notify],
+  );
+
+  /** 把文件夹清单里的一对文件载入差异视图。缺失的一侧载入空白文档。 */
+  const handleOpenPair = useCallback(
+    async (pair: FilePair) => {
+      const handles = folder.handlesFor(pair.path);
+      try {
+        for (const side of ['left', 'right'] as const) {
+          const handle = handles[side];
+          if (handle) {
+            await loadFile(side, await handle.getFile(), handle);
+            continue;
+          }
+          // 该侧没有这个文件：给一份空文档，差异会整块显示为单边新增/删除
+          handlesRef.current[side] = null;
+          dispatch({
+            type: 'loadDocument',
+            side,
+            lines: [],
+            meta: { ...DEFAULT_TEXT_META },
+            name: `${basename(pair.path)}（不存在）`,
+            hasHandle: false,
+          });
+        }
+        setActivePairPath(pair.path);
+        setView('diff');
+      } catch (err) {
+        notify(err instanceof Error ? err.message : '打开文件失败');
+      }
+    },
+    [folder, loadFile, notify],
+  );
+
+  const handlePickFolder = useCallback(
+    (side: Side) => {
+      setView('folder');
+      void folder.pick(side);
+    },
+    [folder],
   );
 
   const handleSave = useCallback(
@@ -290,6 +342,9 @@ export default function App() {
         onRedo={() => dispatch({ type: 'redo' })}
         onToggleOptions={() => setOptionsOpen((v) => !v)}
         onSwap={() => dispatch({ type: 'swapSides' })}
+        folderView={view === 'folder'}
+        folderReady={folder.ready}
+        onToggleFolderView={() => setView((v) => (v === 'folder' ? 'diff' : 'folder'))}
         onTakeAllLeft={() => {
           if (window.confirm('确定把所有差异都改为左侧内容吗？此操作可撤销。')) {
             dispatch({ type: 'applyAllOperations', blocks: result.blocks, operation: 'takeLeft' });
@@ -302,74 +357,113 @@ export default function App() {
         }}
       />
 
-      <div className="headers">
-        <FileHeader
-          side="left"
-          doc={state.left}
-          supported={supported}
-          onPick={handlePick}
-          onDropFile={(side, file) => void loadFile(side, file, null)}
-          onPasteText={(side) => setDialog({ kind: 'paste', side })}
-          onSave={(side) => void handleSave(side)}
-          onSaveAs={(side) => void handleSaveAs(side)}
-          onEditAll={(side) => setDialog({ kind: 'editAll', side })}
+      {view === 'folder' ? (
+        <FolderPanel
+          names={folder.names}
+          pairs={folder.pairs}
+          phase={folder.phase}
+          progress={folder.progress}
+          warnings={folder.warnings}
+          filter={pairFilter}
+          supported={folder.supported}
+          activePath={activePairPath}
+          onFilter={(patch) => setPairFilter((prev) => ({ ...prev, ...patch }))}
+          onPick={(side) => void folder.pick(side)}
+          onOpenPair={(pair) => void handleOpenPair(pair)}
+          onRescan={() => void folder.rescan()}
+          onClose={() => {
+            folder.reset();
+            setActivePairPath(null);
+            setView('diff');
+          }}
         />
-        <FileHeader
-          side="right"
-          doc={state.right}
-          supported={supported}
-          onPick={handlePick}
-          onDropFile={(side, file) => void loadFile(side, file, null)}
-          onPasteText={(side) => setDialog({ kind: 'paste', side })}
-          onSave={(side) => void handleSave(side)}
-          onSaveAs={(side) => void handleSaveAs(side)}
-          onEditAll={(side) => setDialog({ kind: 'editAll', side })}
-        />
-      </div>
-
-      {optionsOpen && (
-        <OptionsPanel
-          options={state.options}
-          keepBoth={state.keepBoth}
-          contextLines={state.contextLines}
-          highlightMode={highlightMode}
-          onOptions={(options) => dispatch({ type: 'setOptions', options })}
-          onKeepBoth={(config) => dispatch({ type: 'setKeepBoth', config })}
-          onContextLines={(value) => dispatch({ type: 'setContextLines', value })}
-          onHighlightMode={setHighlightMode}
-          onClose={() => setOptionsOpen(false)}
-        />
-      )}
-
-      {displayRows.length === 0 ? (
-        <div className="empty-state">
-          <p>打开两个文件开始对比。</p>
-          <p className="empty-hint">
-            支持点击「打开」选择文件、把文件拖到标题栏，或用「粘贴」直接贴入文本。
-          </p>
-        </div>
       ) : (
         <>
-          {result.stats.changedBlocks === 0 && (
-            <div className="banner banner-ok">两份内容完全一致，没有差异。</div>
+          {activePairPath && (
+            <div className="pair-bar">
+              <button type="button" className="ghost-btn" onClick={() => setView('folder')}>
+                ← 返回文件夹清单
+              </button>
+              <span className="pair-path" title={activePairPath}>
+                {activePairPath}
+              </span>
+            </div>
           )}
-          <DiffView
-            rows={displayRows}
-            blocks={result.blocks}
-            leftLines={state.left.lines}
-            rightLines={state.right.lines}
-            activeBlock={state.activeDiff}
-            onApply={handleApply}
-            onEditLine={handleEditLine}
-            onExpand={(blockIndex) =>
-              setExpanded((prev) => new Set(prev).add(blockIndex))
-            }
-            scrollToRow={scrollToRow}
-            leftHighlight={leftHighlight.active ? leftHighlight.lines : undefined}
-            rightHighlight={rightHighlight.active ? rightHighlight.lines : undefined}
-            leftLanguage={leftHighlight.active ? leftHighlight.language : undefined}
-            rightLanguage={rightHighlight.active ? rightHighlight.language : undefined}
-          />
+
+          <div className="headers">
+            <FileHeader
+              side="left"
+              doc={state.left}
+              supported={supported}
+              folderSupported={folder.supported}
+              onPick={handlePick}
+              onPickFolder={handlePickFolder}
+              onDropFile={(side, file) => void loadFile(side, file, null)}
+              onPasteText={(side) => setDialog({ kind: 'paste', side })}
+              onSave={(side) => void handleSave(side)}
+              onSaveAs={(side) => void handleSaveAs(side)}
+              onEditAll={(side) => setDialog({ kind: 'editAll', side })}
+            />
+            <FileHeader
+              side="right"
+              doc={state.right}
+              supported={supported}
+              folderSupported={folder.supported}
+              onPick={handlePick}
+              onPickFolder={handlePickFolder}
+              onDropFile={(side, file) => void loadFile(side, file, null)}
+              onPasteText={(side) => setDialog({ kind: 'paste', side })}
+              onSave={(side) => void handleSave(side)}
+              onSaveAs={(side) => void handleSaveAs(side)}
+              onEditAll={(side) => setDialog({ kind: 'editAll', side })}
+            />
+          </div>
+
+          {optionsOpen && (
+            <OptionsPanel
+              options={state.options}
+              keepBoth={state.keepBoth}
+              contextLines={state.contextLines}
+              highlightMode={highlightMode}
+              onOptions={(options) => dispatch({ type: 'setOptions', options })}
+              onKeepBoth={(config) => dispatch({ type: 'setKeepBoth', config })}
+              onContextLines={(value) => dispatch({ type: 'setContextLines', value })}
+              onHighlightMode={setHighlightMode}
+              onClose={() => setOptionsOpen(false)}
+            />
+          )}
+
+          {displayRows.length === 0 ? (
+            <div className="empty-state">
+              <p>打开两个文件开始对比。</p>
+              <p className="empty-hint">
+                支持点击「打开」选择文件、把文件拖到标题栏，或用「粘贴」直接贴入文本。
+              </p>
+            </div>
+          ) : (
+            <>
+              {result.stats.changedBlocks === 0 && (
+                <div className="banner banner-ok">两份内容完全一致，没有差异。</div>
+              )}
+              <DiffView
+                rows={displayRows}
+                blocks={result.blocks}
+                leftLines={state.left.lines}
+                rightLines={state.right.lines}
+                activeBlock={state.activeDiff}
+                onApply={handleApply}
+                onEditLine={handleEditLine}
+                onExpand={(blockIndex) =>
+                  setExpanded((prev) => new Set(prev).add(blockIndex))
+                }
+                scrollToRow={scrollToRow}
+                leftHighlight={leftHighlight.active ? leftHighlight.lines : undefined}
+                rightHighlight={rightHighlight.active ? rightHighlight.lines : undefined}
+                leftLanguage={leftHighlight.active ? leftHighlight.language : undefined}
+                rightLanguage={rightHighlight.active ? rightHighlight.language : undefined}
+              />
+            </>
+          )}
         </>
       )}
 
@@ -392,4 +486,10 @@ export default function App() {
       {message && <div className="toast">{message}</div>}
     </div>
   );
+}
+
+/** 取相对路径的最后一段作为显示用文件名。 */
+function basename(path: string): string {
+  const index = path.lastIndexOf('/');
+  return index >= 0 ? path.slice(index + 1) : path;
 }

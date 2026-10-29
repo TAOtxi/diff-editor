@@ -6,7 +6,10 @@ interface FileHeaderProps {
   side: Side;
   doc: DocumentState;
   supported: boolean;
+  /** 浏览器是否支持选择文件夹。 */
+  folderSupported: boolean;
   onPick: (side: Side) => void;
+  onPickFolder: (side: Side) => void;
   onDropFile: (side: Side, file: File) => void;
   onPasteText: (side: Side) => void;
   onSave: (side: Side) => void;
@@ -23,7 +26,9 @@ export function FileHeader({
   side,
   doc,
   supported,
+  folderSupported,
   onPick,
+  onPickFolder,
   onDropFile,
   onPasteText,
   onSave,
@@ -68,6 +73,14 @@ export function FileHeader({
       <div className="file-actions">
         <button type="button" onClick={() => onPick(side)} disabled={!supported} title="打开文件">
           打开
+        </button>
+        <button
+          type="button"
+          onClick={() => onPickFolder(side)}
+          disabled={!folderSupported}
+          title="打开文件夹进行批量对比"
+        >
+          文件夹
         </button>
         <button type="button" onClick={() => onPasteText(side)} title="粘贴文本">
           粘贴
