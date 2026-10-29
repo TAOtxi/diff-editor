@@ -51,13 +51,17 @@ src/
 │   ├── operations.ts  # 四种块级操作（takeLeft/takeRight/keepBoth/deleteBoth）
 │   ├── text.ts        # 行切分、EOL 探测、BOM、二进制判定、对比归一化
 │   ├── highlight.ts   # 语法高亮 tokenizer（零依赖、纯函数，按扩展名推断语言）
+│   ├── gitignore.ts   # .gitignore 解析与匹配（纯函数）
+│   ├── folder.ts      # 文件夹对比：路径配对、状态分类、统计与筛选（纯函数）
 │   └── types.ts       # 全部核心类型与默认值
 ├── state/         # reducer（store.ts）+ 撤销栈（history.ts）
 ├── view/rows.ts   # 差异块 → 渲染行（含 equal 块折叠）
 ├── worker/        # diff.worker.ts —— 差异计算 Worker
 ├── fs/            # fileAccess.ts —— File System Access API 封装
+│                  # directoryAccess.ts —— 目录选择、递归遍历、内容比对
 ├── hooks/         # useDiff（Worker 调度）、useHighlight（语法高亮）、useNavigation
-├── components/    # 纯 UI（DiffView / Toolbar / FileHeader / ...）
+│                  # useFolderCompare —— 文件夹对比的扫描/配对/比对编排
+├── components/    # 纯 UI（DiffView / Toolbar / FileHeader / FolderPanel / ...）
 ├── App.tsx        # 顶层编排：reducer + hooks + 快捷键 + 保存流程
 ├── main.tsx       # 入口，只挂载 App
 └── test/setup.ts  # vitest 全局 setup（jest-dom 等）
@@ -180,10 +184,12 @@ operations.applyBlockOperation() → 新行数组 → reducer 写回 + 记录历
 
 以下**不在本期范围**，接手时不要误当需求去实现（除非明确被要求）：
 
-- 目录对比、三方合并（base + left + right）、git 集成。
+- 三方合并（base + left + right）、git 集成。
 - 深色主题。
 - `equal` 块折叠状态不随文档改动保留（折叠上下文行数 `contextLines` 可配，默认 3）。
 - 语法高亮为**轻量词法着色**（非 AST 级，不区分上下文），不引入 highlight.js/Prism/Shiki 等库；语言由扩展名推断，可在「选项 → 显示 → 语法高亮」关闭。
+- 文件夹对比改完保存后，清单里那一行的状态**不会自动刷新**，要点「重新扫描」。没有做「写回整目录」的批量保存。
+- 文件夹遍历只读根目录的 `.gitignore`，不处理子目录里的嵌套 `.gitignore`；单次上限 `MAX_SCAN_FILES = 20_000`，超出截断并提示。
 
 ---
 
@@ -196,6 +202,7 @@ operations.applyBlockOperation() → 新行数组 → reducer 写回 + 记录历
 | 加状态 / 改撤销逻辑 | `state/store.ts`（reducer + Action）、`state/history.ts` |
 | 改渲染 / 折叠 / 行高 | `view/rows.ts`、`components/DiffView.tsx` |
 | 改文件读写 / 保存 | `fs/fileAccess.ts`、`App.tsx` 的 `handleSave` 系列 |
+| 改文件夹对比 / 忽略规则 | `core/folder.ts`、`core/gitignore.ts`、`fs/directoryAccess.ts`、`hooks/useFolderCompare.ts`、`components/FolderPanel.tsx` |
 | 改快捷键 | `App.tsx` 的全局 `onKeyDown`（约 213–250 行） |
 | 改 Worker / 性能 | `worker/diff.worker.ts`、`hooks/useDiff.ts` |
 | 改顶部工具栏 / 统计 | `components/Toolbar.tsx`、`components/OptionsPanel.tsx` |
