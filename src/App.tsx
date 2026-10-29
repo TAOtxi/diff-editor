@@ -42,6 +42,8 @@ export default function App() {
   const [scrollToRow, setScrollToRow] = useState<number | null>(null);
   /** 语法高亮模式：auto 跟随文件名推断，off 关闭。 */
   const [highlightMode, setHighlightMode] = useState<HighlightMode>('auto');
+  /** 长行是否自动换行。关闭时长行横向滚动。 */
+  const [wordWrap, setWordWrap] = useState(false);
   /** 被用户手动展开的 equal 块，不再折叠。 */
   const [expanded, setExpanded] = useState<Set<number>>(new Set());
   const [view, setView] = useState<ViewMode>('diff');
@@ -425,10 +427,12 @@ export default function App() {
               keepBoth={state.keepBoth}
               contextLines={state.contextLines}
               highlightMode={highlightMode}
+              wordWrap={wordWrap}
               onOptions={(options) => dispatch({ type: 'setOptions', options })}
               onKeepBoth={(config) => dispatch({ type: 'setKeepBoth', config })}
               onContextLines={(value) => dispatch({ type: 'setContextLines', value })}
               onHighlightMode={setHighlightMode}
+              onWordWrap={setWordWrap}
               onClose={() => setOptionsOpen(false)}
             />
           )}
@@ -461,6 +465,7 @@ export default function App() {
                 rightHighlight={rightHighlight.active ? rightHighlight.lines : undefined}
                 leftLanguage={leftHighlight.active ? leftHighlight.language : undefined}
                 rightLanguage={rightHighlight.active ? rightHighlight.language : undefined}
+                wordWrap={wordWrap}
               />
             </>
           )}

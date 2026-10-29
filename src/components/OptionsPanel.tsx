@@ -6,10 +6,13 @@ interface OptionsPanelProps {
   keepBoth: KeepBothConfig;
   contextLines: number | null;
   highlightMode: HighlightMode;
+  /** 长行是否自动换行。关闭时改为横向滚动。 */
+  wordWrap: boolean;
   onOptions: (patch: Partial<CompareOptions>) => void;
   onKeepBoth: (patch: Partial<KeepBothConfig>) => void;
   onContextLines: (value: number | null) => void;
   onHighlightMode: (mode: HighlightMode) => void;
+  onWordWrap: (value: boolean) => void;
   onClose: () => void;
 }
 
@@ -18,10 +21,12 @@ export function OptionsPanel({
   keepBoth,
   contextLines,
   highlightMode,
+  wordWrap,
   onOptions,
   onKeepBoth,
   onContextLines,
   onHighlightMode,
+  onWordWrap,
   onClose,
 }: OptionsPanelProps) {
   return (
@@ -137,6 +142,14 @@ export function OptionsPanel({
             <option value="auto">跟随文件类型</option>
             <option value="off">关闭</option>
           </select>
+        </label>
+        <label>
+          <input
+            type="checkbox"
+            checked={wordWrap}
+            onChange={(e) => onWordWrap(e.target.checked)}
+          />
+          长行自动换行
         </label>
       </fieldset>
     </div>

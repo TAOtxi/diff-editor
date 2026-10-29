@@ -11,7 +11,7 @@
 
 - 技术栈：React 19 + TypeScript 5 + Vite 7 + Vitest 3，包管理器 **pnpm 11**。
 - 引擎层（`src/core/`）全部是**纯函数**，与 UI 完全解耦，是单测和正确性验证的主战场。
-- 差异计算在 **Web Worker** 中执行，渲染用固定行高虚拟滚动，能扛住 10 万行。
+- 差异计算在 **Web Worker** 中执行，渲染用虚拟滚动（默认固定行高，也可开自动换行），能扛住 10 万行。
 
 ---
 
@@ -55,7 +55,8 @@ src/
 │   ├── folder.ts      # 文件夹对比：路径配对、状态分类、统计与筛选（纯函数）
 │   └── types.ts       # 全部核心类型与默认值
 ├── state/         # reducer（store.ts）+ 撤销栈（history.ts）
-├── view/rows.ts   # 差异块 → 渲染行（含 equal 块折叠）
+├── view/          # rows.ts —— 差异块 → 渲染行（含 equal 块折叠）
+│                  # layout.ts —— 行宽 / 行高 / 偏移与纵坐标反查（纯函数）
 ├── worker/        # diff.worker.ts —— 差异计算 Worker
 ├── fs/            # fileAccess.ts —— File System Access API 封装
 │                  # directoryAccess.ts —— 目录选择、递归遍历、内容比对
@@ -152,6 +153,23 @@ operations.applyBlockOperation() → 新行数组 → reducer 写回 + 记录历
 
 `text.ts` 的 `normalizeLine` 生成对比用的行键（忽略空白/大小写等），但**不修改文档内容**，显示与保存始终是用户原始文本。对比选项 `CompareOptions` 任何一项变化都会触发 `useDiff` 重算。
 
+### 5.7 行宽与行高：横向滚动 vs 自动换行
+
+`view/layout.ts` 把「行宽、行高、行偏移、纵坐标反查」抽成 `RowLayout` 接口，`DiffView` 只消费接口。两种模式：
+
+- **不换行（默认）**：`uniformLayout`，行高恒为 `ROW_HEIGHT`，`indexAt` 就是一次除法。
+- **自动换行**：`wrappedLayout`，「字符列数 ÷ 每行列数」估出折行数，前缀和出偏移，`indexAt` 用二分查找。
+
+不换行时行宽按**最长行**算：`2 × 最长侧宽 + 中缝 96px`，横向滚动条由 `.diff-view` 的 `overflow: auto` 提供。行宽是显式写在行元素上的，所以`.row` 的 CSS 里**只有 `left` 没有 `right`**，别再补回去，否则行宽会被容器宽度约束死、横向滚不动。
+
+字宽用 canvas 实测（`measureFont`，jsdom 下自动退回 `FALLBACK_FONT_METRICS`）。`layout.ts` 里的 `ROW_HEIGHT` / `TAB_SIZE` / `MIDDLE_WIDTH` / `GUTTER_WIDTH` / `CELL_PADDING` 都是**和 CSS 对齐的硬约定**，改 CSS 必须同步改常量，否则换行行数会估错、行高不够导致文字重叠。CSS 里显式的 `tab-size: 4` 同理。
+
+估算策略是**宁可高估**：全角字符按实测比例折算，估多了只是多留白，估少了文字会压到下一行。
+
+### 5.8 换行必须同时放开两层 white-space
+
+`white-space: pre` 同时存在于 `.line-content` 和 `.line-text`（后者来自 `InlineText`）。换行模式下两个都要改成 `pre-wrap`，只改外层的话内层仍不折行——这是很容易漏的一处。
+
 ---
 
 ## 6. 测试策略
@@ -159,7 +177,7 @@ operations.applyBlockOperation() → 新行数组 → reducer 写回 + 记录历
 - 引擎层 `src/core/**` 有完整单测，是正确性验证的核心：
   - `myers.test.ts`：用 DP 版 LCS 作参照，对 ~580 组随机序列断言「equal 段总长 = LCS 长度」= 最优解，并校验脚本能无损回放出两侧原序列。
   - `operations.test.ts`：四种操作 × 七种场景，逐一断言「执行后差异数恰好减一」的不变式。
-- 其余单测：`state/history.test.ts`、`view/rows.test.ts`、`hooks/useNavigation.test.ts`、`App.test.tsx`。
+- 其余单测：`state/history.test.ts`、`view/rows.test.ts`、`view/layout.test.ts`、`hooks/useNavigation.test.ts`、`App.test.tsx`。
 - 测试环境：`jsdom` + `globals: true`（无需手动 import `describe/it/expect`），setup 在 `src/test/setup.ts`。
 - **改引擎层逻辑必须先跑 `pnpm coverage` 并补测试**，尤其是 myers 和 operations，它们守卫着整个工具的可靠性。
 
@@ -200,7 +218,7 @@ operations.applyBlockOperation() → 新行数组 → reducer 写回 + 记录历
 | 改差异算法 / 加对比选项 | `core/myers.ts`、`core/diff.ts`、`core/text.ts`（+ `types.ts` 的 `CompareOptions`），补测试 |
 | 改块操作行为 / 加操作 | `core/operations.ts`（+ `types.ts` 的 `BlockOperation`），补 `operations.test.ts` |
 | 加状态 / 改撤销逻辑 | `state/store.ts`（reducer + Action）、`state/history.ts` |
-| 改渲染 / 折叠 / 行高 | `view/rows.ts`、`components/DiffView.tsx` |
+| 改渲染 / 折叠 / 行高 / 换行 | `view/rows.ts`、`view/layout.ts`、`components/DiffView.tsx` |
 | 改文件读写 / 保存 | `fs/fileAccess.ts`、`App.tsx` 的 `handleSave` 系列 |
 | 改文件夹对比 / 忽略规则 | `core/folder.ts`、`core/gitignore.ts`、`fs/directoryAccess.ts`、`hooks/useFolderCompare.ts`、`components/FolderPanel.tsx` |
 | 改快捷键 | `App.tsx` 的全局 `onKeyDown`（约 213–250 行） |

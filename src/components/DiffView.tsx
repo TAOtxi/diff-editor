@@ -2,14 +2,26 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { BlockActions } from './BlockActions';
 import { LineCell } from './LineCell';
 import type { Row } from '../view/rows';
+import {
+  FALLBACK_FONT_METRICS,
+  MIDDLE_WIDTH,
+  SIDE_CHROME,
+  TAB_SIZE,
+  maxVisualUnits,
+  measureFont,
+  uniformLayout,
+  wrappedLayout,
+  type FontMetrics,
+  type RowLayout,
+} from '../view/layout';
 import type { BlockOperation, DiffBlock, Side } from '../core/types';
 import type { HighlightLanguage, HighlightToken } from '../core/highlight';
 
-/** 单行高度，px。固定行高换取简单可靠的虚拟滚动计算。 */
-export const ROW_HEIGHT = 22;
-
 /** 视口外额外渲染的行数，减少快速滚动时的白屏。 */
 const OVERSCAN = 12;
+
+/** 换行模式下每侧至少保留的字符列数，避免容器极窄时一行只放得下一个字。 */
+const MIN_COLUMNS = 8;
 
 interface DiffViewProps {
   rows: Row[];
@@ -27,6 +39,8 @@ interface DiffViewProps {
   rightHighlight: HighlightToken[][] | undefined;
   leftLanguage: HighlightLanguage | undefined;
   rightLanguage: HighlightLanguage | undefined;
+  /** 是否自动换行。关闭时长行横向滚动。 */
+  wordWrap?: boolean;
 }
 
 export function DiffView({
@@ -43,29 +57,87 @@ export function DiffView({
   rightHighlight,
   leftLanguage,
   rightLanguage,
+  wordWrap = false,
 }: DiffViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [scrollTop, setScrollTop] = useState(0);
-  const [viewportHeight, setViewportHeight] = useState(600);
+  // 首帧还没量到容器尺寸，先给个合理初值：宽度为 0 会让换行模式算出极端布局
+  const [viewport, setViewport] = useState({ width: 900, height: 600 });
 
-  // 视口高度跟随容器尺寸变化
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
     const observer = new ResizeObserver((entries) => {
-      for (const entry of entries) setViewportHeight(entry.contentRect.height);
+      for (const entry of entries) {
+        setViewport({ width: entry.contentRect.width, height: entry.contentRect.height });
+      }
     });
     observer.observe(el);
-    setViewportHeight(el.clientHeight);
+    setViewport({ width: el.clientWidth, height: el.clientHeight });
     return () => observer.disconnect();
   }, []);
+
+  // 字体度量：挂载后实测一次即可，字体本身不会中途变
+  const [metrics, setMetrics] = useState<FontMetrics>(FALLBACK_FONT_METRICS);
+  useEffect(() => {
+    setMetrics(measureFont(containerRef.current));
+  }, []);
+  const wideUnits = metrics.narrow > 0 ? metrics.wide / metrics.narrow : 2;
+
+  const maxUnits = useMemo(
+    () =>
+      Math.max(
+        maxVisualUnits(leftLines, TAB_SIZE, wideUnits),
+        maxVisualUnits(rightLines, TAB_SIZE, wideUnits),
+      ),
+    [leftLines, rightLines, wideUnits],
+  );
+
+  /**
+   * 不换行时把行撑到「最长行放得下」的宽度，横向滚动条由 .diff-view 的
+   * overflow 提供。两侧要各放一份最长行，所以是 contentWidth * 2。
+   */
+  const contentWidth = SIDE_CHROME + Math.ceil(maxUnits * metrics.narrow) + 4;
+  const rowWidth = wordWrap
+    ? viewport.width
+    : Math.max(viewport.width, contentWidth * 2 + MIDDLE_WIDTH);
+
+  /** 换行时每侧一行能容纳的半角字符数。 */
+  const columns = useMemo(() => {
+    const sideWidth = (viewport.width - MIDDLE_WIDTH) / 2;
+    return Math.max(MIN_COLUMNS, Math.floor((sideWidth - SIDE_CHROME) / metrics.narrow));
+  }, [viewport.width, metrics.narrow]);
+
+  const layout = useMemo<RowLayout>(
+    () =>
+      wordWrap
+        ? wrappedLayout({
+            rows,
+            leftLines,
+            rightLines,
+            columns,
+            rowWidth,
+            tabSize: TAB_SIZE,
+            wideUnits,
+          })
+        : uniformLayout(rows.length, rowWidth),
+    [wordWrap, rows, leftLines, rightLines, columns, rowWidth, wideUnits],
+  );
+
+  // 定位要用最新布局，但不希望布局因编辑内容变化就触发一次滚动，所以走 ref
+  const layoutRef = useRef(layout);
+  layoutRef.current = layout;
 
   // 导航滚动：把目标行带到视口中部
   useEffect(() => {
     if (scrollToRow === null) return;
     const el = containerRef.current;
     if (!el) return;
-    const target = Math.max(0, scrollToRow * ROW_HEIGHT - el.clientHeight / 2 + ROW_HEIGHT / 2);
+    const current = layoutRef.current;
+    const target = Math.max(
+      0,
+      current.topOf(scrollToRow) - el.clientHeight / 2 + current.heightOf(scrollToRow) / 2,
+    );
     // 部分环境（含 jsdom）没有 scrollTo，退化为直接赋值
     if (typeof el.scrollTo === 'function') {
       el.scrollTo({ top: target, behavior: 'smooth' });
@@ -80,11 +152,14 @@ export function DiffView({
   }, []);
 
   const visible = useMemo(() => {
-    const first = Math.max(0, Math.floor(scrollTop / ROW_HEIGHT) - OVERSCAN);
-    const count = Math.ceil(viewportHeight / ROW_HEIGHT) + OVERSCAN * 2;
-    const last = Math.min(rows.length, first + count);
-    return { first, last };
-  }, [scrollTop, viewportHeight, rows.length]);
+    if (rows.length === 0) return { first: 0, last: 0 };
+    const firstIndex = layout.indexAt(scrollTop);
+    const lastIndex = layout.indexAt(scrollTop + viewport.height);
+    return {
+      first: Math.max(0, firstIndex - OVERSCAN),
+      last: Math.min(rows.length, lastIndex + 1 + OVERSCAN),
+    };
+  }, [layout, scrollTop, viewport.height, rows.length]);
 
   /**
    * 某行是否是该块在可视范围内的第一行。
@@ -110,20 +185,29 @@ export function DiffView({
   const slice = rows.slice(visible.first, visible.last);
 
   return (
-    <div className="diff-view" ref={containerRef} onScroll={handleScroll} tabIndex={0}>
-      <div className="diff-spacer" style={{ height: rows.length * ROW_HEIGHT }}>
+    <div
+      className={`diff-view${wordWrap ? ' wrap' : ''}`}
+      ref={containerRef}
+      onScroll={handleScroll}
+      tabIndex={0}
+    >
+      <div
+        className="diff-spacer"
+        style={{ height: layout.totalHeight, width: layout.rowWidth }}
+      >
         {slice.map((row, i) => {
           const index = visible.first + i;
           const block = blockByIndex.get(row.blockIndex);
           const isActive = row.blockIndex === activeBlock;
+          const rowStyle = {
+            top: layout.topOf(index),
+            height: layout.heightOf(index),
+            width: layout.rowWidth,
+          };
 
           if (row.collapsed) {
             return (
-              <div
-                className="row row-collapsed"
-                key={row.key}
-                style={{ top: index * ROW_HEIGHT, height: ROW_HEIGHT }}
-              >
+              <div className="row row-collapsed" key={row.key} style={rowStyle}>
                 <button type="button" className="expand-btn" onClick={() => onExpand(row.blockIndex)}>
                   展开 {row.collapsed.count} 行相同内容
                 </button>
@@ -135,7 +219,7 @@ export function DiffView({
             <div
               className={`row row-${row.kind}${isActive ? ' row-active' : ''}`}
               key={row.key}
-              style={{ top: index * ROW_HEIGHT, height: ROW_HEIGHT }}
+              style={rowStyle}
               data-block={row.blockIndex}
             >
               <div className="side side-left">

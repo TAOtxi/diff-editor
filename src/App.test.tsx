@@ -23,6 +23,11 @@ beforeEach(() => {
     configurable: true,
     value: 2000,
   });
+  // 与上面同理：jsdom 的 clientWidth 恒为 0，量不出可见宽度
+  Object.defineProperty(HTMLElement.prototype, 'clientWidth', {
+    configurable: true,
+    value: 1200,
+  });
   vi.stubGlobal('confirm', () => true);
 });
 
@@ -237,5 +242,45 @@ describe('App 交换与编辑', () => {
     await waitFor(() => {
       expect(screen.getByText('两份内容完全一致，没有差异。')).toBeInTheDocument();
     });
+  });
+});
+
+describe('App 长行显示', () => {
+  // 200 个半角字符。兜底字宽 7.5px 时，容器 1200px、每侧可用 492px，一行放 65 列
+  const longLine = 'x'.repeat(200);
+
+  it('不换行时把行撑到最长行宽度，横向可滚', async () => {
+    render(<App />);
+    await loadBothSides(`a\n${longLine}\nc`, 'a\nshort\nc');
+
+    const spacer = document.querySelector<HTMLElement>('.diff-spacer');
+    expect(spacer).not.toBeNull();
+    // 两侧各放一份最长行：(60 + 1500 + 4) * 2 + 96
+    expect(spacer?.style.width).toBe('3224px');
+    // 换行模式关闭时不应带 wrap 类
+    expect(document.querySelector('.diff-view')?.classList.contains('wrap')).toBe(false);
+  });
+
+  it('开启自动换行后不再横向撑开，并按折行数放大行高', async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    await loadBothSides(`a\n${longLine}\nc`, 'a\nshort\nc');
+
+    await user.click(screen.getByRole('button', { name: '选项' }));
+    await user.click(screen.getByRole('checkbox', { name: '长行自动换行' }));
+
+    await waitFor(() => {
+      expect(document.querySelector('.diff-view')?.classList.contains('wrap')).toBe(true);
+    });
+
+    const spacer = document.querySelector<HTMLElement>('.diff-spacer');
+    // 行宽回落到容器宽度，不再需要横向滚动
+    expect(spacer?.style.width).toBe('1200px');
+
+    // 200 列 / 每行 65 列 → 折 4 行 → 高度 4 × 22
+    const heights = Array.from(document.querySelectorAll<HTMLElement>('.row')).map(
+      (el) => el.style.height,
+    );
+    expect(heights).toContain('88px');
   });
 });
