@@ -34,7 +34,60 @@
   --syn-heading: #1f2328;
   --syn-emphasis: #953800;
 
+  /* 原先散落在组件里的硬编码色，收拢成变量以便主题切换 */
+  --accent-hover: #0757ba;
+  --accent-contrast: #ffffff;
+  --drag-over-bg: #eaf3ff;
+  --hatch: rgba(0, 0, 0, 0.035);
+  --toast-bg: #1f2328;
+  --toast-text: #ffffff;
+  --backdrop: rgba(0, 0, 0, 0.35);
+
   --mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
+}
+
+/* 深色主题。差异色降低亮度但保持色相，与浅色主题语义一致 */
+:root[data-theme='dark'] {
+  --bg: #0d1117;
+  --bg-subtle: #161b22;
+  --border: #30363d;
+  --text: #e6edf3;
+  --text-muted: #8d96a0;
+
+  --delete-bg: #3c1618;
+  --delete-border: #8e2f36;
+  --insert-bg: #12351f;
+  --insert-border: #2e7d46;
+  --conflict-bg: #3a2e0f;
+  --conflict-border: #9e7a26;
+
+  --inline-removed: #7d2a31;
+  --inline-added: #23633a;
+
+  --accent: #4493f8;
+  --active-outline: #4493f8;
+
+  --syn-keyword: #ff7b72;
+  --syn-string: #a5d6ff;
+  --syn-number: #79c0ff;
+  --syn-comment: #8b949e;
+  --syn-function: #d2a8ff;
+  --syn-type: #ffa657;
+  --syn-property: #79c0ff;
+  --syn-operator: #e6edf3;
+  --syn-punctuation: #b1bac4;
+  --syn-tag: #7ee787;
+  --syn-attr: #ffa657;
+  --syn-heading: #e6edf3;
+  --syn-emphasis: #ffa657;
+
+  --accent-hover: #2f81f7;
+  --accent-contrast: #ffffff;
+  --drag-over-bg: #132339;
+  --hatch: rgba(255, 255, 255, 0.04);
+  --toast-bg: #e6edf3;
+  --toast-text: #0d1117;
+  --backdrop: rgba(0, 0, 0, 0.6);
 }
 
 * {

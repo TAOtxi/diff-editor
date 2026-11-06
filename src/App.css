@@ -75,7 +75,7 @@
 }
 
 .file-header.drag-over {
-  background: #eaf3ff;
+  background: var(--drag-over-bg);
   outline: 2px dashed var(--accent);
   outline-offset: -3px;
 }
@@ -206,8 +206,8 @@
     45deg,
     transparent,
     transparent 4px,
-    rgba(0, 0, 0, 0.035) 4px,
-    rgba(0, 0, 0, 0.035) 8px
+    var(--hatch) 4px,
+    var(--hatch) 8px
   );
 }
 
@@ -451,12 +451,12 @@
 .primary-btn {
   background: var(--accent);
   border-color: var(--accent);
-  color: #fff;
+  color: var(--accent-contrast);
 }
 
 .primary-btn:hover:not(:disabled) {
-  background: #0757ba;
-  border-color: #0757ba;
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
 }
 
 /* 空态与提示条 */
@@ -494,8 +494,8 @@
   bottom: 18px;
   left: 50%;
   transform: translateX(-50%);
-  background: #1f2328;
-  color: #fff;
+  background: var(--toast-bg);
+  color: var(--toast-text);
   padding: 7px 16px;
   border-radius: 5px;
   z-index: 50;
@@ -505,7 +505,7 @@
 .dialog-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.35);
+  background: var(--backdrop);
   display: flex;
   align-items: center;
   justify-content: center;

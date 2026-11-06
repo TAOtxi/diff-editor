@@ -21,15 +21,13 @@ import { useDiff } from './hooks/useDiff';
 import { useFolderCompare } from './hooks/useFolderCompare';
 import { useNavigation } from './hooks/useNavigation';
 import { useHighlight, type HighlightMode } from './hooks/useHighlight';
+import { useTheme } from './hooks/useTheme';
 import { canRedo, canUndo } from './state/history';
 import { createInitialState, hasUnsavedChanges, reducer } from './state/store';
 import { buildRows, findRowForBlock } from './view/rows';
 import './App.css';
 
-type DialogState =
-  | { kind: 'paste'; side: Side }
-  | { kind: 'editAll'; side: Side }
-  | null;
+type DialogState = { kind: 'paste'; side: Side } | { kind: 'editAll'; side: Side } | null;
 
 /** 主区域显示什么：文件差异，还是文件夹对比清单。 */
 type ViewMode = 'diff' | 'folder';
@@ -50,6 +48,7 @@ export default function App() {
   const [pairFilter, setPairFilter] = useState<PairFilter>(DEFAULT_PAIR_FILTER);
   /** 当前从文件夹清单打开的那一对文件的相对路径。 */
   const [activePairPath, setActivePairPath] = useState<string | null>(null);
+  const { theme, toggleTheme } = useTheme();
 
   // 文件句柄不放进 reducer state：它不可序列化，也不该进撤销历史
   const handlesRef = useRef<Record<Side, FileSystemFileHandle | null>>({
@@ -347,6 +346,8 @@ export default function App() {
         folderView={view === 'folder'}
         folderReady={folder.ready}
         onToggleFolderView={() => setView((v) => (v === 'folder' ? 'diff' : 'folder'))}
+        dark={theme === 'dark'}
+        onToggleTheme={toggleTheme}
         onTakeAllLeft={() => {
           if (window.confirm('确定把所有差异都改为左侧内容吗？此操作可撤销。')) {
             dispatch({ type: 'applyAllOperations', blocks: result.blocks, operation: 'takeLeft' });
@@ -457,9 +458,7 @@ export default function App() {
                 activeBlock={state.activeDiff}
                 onApply={handleApply}
                 onEditLine={handleEditLine}
-                onExpand={(blockIndex) =>
-                  setExpanded((prev) => new Set(prev).add(blockIndex))
-                }
+                onExpand={(blockIndex) => setExpanded((prev) => new Set(prev).add(blockIndex))}
                 scrollToRow={scrollToRow}
                 leftHighlight={leftHighlight.active ? leftHighlight.lines : undefined}
                 rightHighlight={rightHighlight.active ? rightHighlight.lines : undefined}
@@ -480,7 +479,9 @@ export default function App() {
               : `编辑${dialog.side === 'left' ? '左' : '右'}侧全文`
           }
           initialValue={
-            dialog.kind === 'paste' ? '' : joinLines(state[dialog.side].lines, state[dialog.side].meta)
+            dialog.kind === 'paste'
+              ? ''
+              : joinLines(state[dialog.side].lines, state[dialog.side].meta)
           }
           confirmLabel={dialog.kind === 'paste' ? '载入' : '应用'}
           onConfirm={handleDialogConfirm}

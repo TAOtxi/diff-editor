@@ -195,6 +195,7 @@ operations.applyBlockOperation() → 新行数组 → reducer 写回 + 记录历
 8. **大文件阈值**：`LARGE_FILE_BYTES = 5MB`、`LARGE_FILE_LINES = 100_000`，超过会 `window.confirm` 后再打开；含 NUL 字节按二进制拦截。
 9. **GitHub Pages 子路径**：`vite.config.ts` 的 `base` 由 `BASE_PATH` 环境变量注入（`/diff-editor/`），CI 部署依赖它，别把 base 写死。
 10. **中文 vs 英文文案**：界面是中文的，新加的 UI 文案用中文，与现有保持一致。
+11. **主题配色只走 CSS 变量**。浅色/深色两套变量都在 `index.css`（`:root` 与 `:root[data-theme='dark']`），组件 CSS 里不要写死颜色，新增颜色必须两套都补。主题由 `hooks/useTheme.ts` 写到 `<html data-theme>` 并存 localStorage（键 `diff-editor:theme`，没存过跟随系统）；`index.html` 里有一段同逻辑的内联脚本在首帧前套主题防闪烁，改键名或判定逻辑要两处同步。
 
 ---
 
@@ -203,7 +204,6 @@ operations.applyBlockOperation() → 新行数组 → reducer 写回 + 记录历
 以下**不在本期范围**，接手时不要误当需求去实现（除非明确被要求）：
 
 - 三方合并（base + left + right）、git 集成。
-- 深色主题。
 - `equal` 块折叠状态不随文档改动保留（折叠上下文行数 `contextLines` 可配，默认 3）。
 - 语法高亮为**轻量词法着色**（非 AST 级，不区分上下文），不引入 highlight.js/Prism/Shiki 等库；语言由扩展名推断，可在「选项 → 显示 → 语法高亮」关闭。
 - 文件夹对比改完保存后，清单里那一行的状态**不会自动刷新**，要点「重新扫描」。没有做「写回整目录」的批量保存。

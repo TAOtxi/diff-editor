@@ -23,6 +23,9 @@ interface ToolbarProps {
   onToggleFolderView: () => void;
   onTakeAllLeft: () => void;
   onTakeAllRight: () => void;
+  /** 当前是否为深色主题。 */
+  dark: boolean;
+  onToggleTheme: () => void;
 }
 
 export function Toolbar({
@@ -46,6 +49,8 @@ export function Toolbar({
   onToggleFolderView,
   onTakeAllLeft,
   onTakeAllRight,
+  dark,
+  onToggleTheme,
 }: ToolbarProps) {
   const counter = total === 0 ? '无差异' : `第 ${position + 1} / ${total} 个差异`;
 
@@ -115,6 +120,14 @@ export function Toolbar({
           title={folderReady ? '切换文件夹清单' : '选择两个文件夹进行批量对比'}
         >
           文件夹
+        </button>
+        <button
+          type="button"
+          onClick={onToggleTheme}
+          aria-pressed={dark}
+          title={dark ? '切换到浅色主题' : '切换到深色主题'}
+        >
+          {dark ? '浅色' : '深色'}
         </button>
       </div>
     </div>
