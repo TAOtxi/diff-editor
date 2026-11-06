@@ -96,8 +96,10 @@ export function DiffView({
   /**
    * 两栏始终各占视口一半，行宽恒为视口宽度。
    * 不换行时长行不再撑宽栏位，而是把超出部分做成横向滚动量：
-   * spacer 比视口宽出 overflowX，行容器 sticky 固定在视口内，
+   * spacer 比视口宽出 overflowX，行容器 .diff-rows 用 sticky 固定在视口内，
    * 两侧文本按 scrollLeft 同步平移（见 handleScroll 与 CSS 的 --scroll-x）。
+   * 栏位固定不能靠 scroll 事件去改 left：事件比合成线程的滚动晚一帧以上，
+   * 会出现栏位先跟着滚、再被拉回的抖动。
    */
   const rowWidth = viewport.width;
   const sideWidth = (viewport.width - MIDDLE_WIDTH) / 2;
@@ -200,69 +202,76 @@ export function DiffView({
         className="diff-spacer"
         style={{ height: layout.totalHeight, width: layout.rowWidth + overflowX }}
       >
-        {slice.map((row, i) => {
-          const index = visible.first + i;
-          const block = blockByIndex.get(row.blockIndex);
-          const isActive = row.blockIndex === activeBlock;
-          const rowStyle = {
-            top: layout.topOf(index),
-            height: layout.heightOf(index),
-            width: layout.rowWidth,
-          };
+        {/* sticky 由合成线程处理，横滚时栏位不会先跟着内容动一帧再被拉回 */}
+        <div className="diff-rows" style={{ height: layout.totalHeight, width: layout.rowWidth }}>
+          {slice.map((row, i) => {
+            const index = visible.first + i;
+            const block = blockByIndex.get(row.blockIndex);
+            const isActive = row.blockIndex === activeBlock;
+            const rowStyle = {
+              top: layout.topOf(index),
+              height: layout.heightOf(index),
+              width: layout.rowWidth,
+            };
 
-          if (row.collapsed) {
+            if (row.collapsed) {
+              return (
+                <div className="row row-collapsed" key={row.key} style={rowStyle}>
+                  <button
+                    type="button"
+                    className="expand-btn"
+                    onClick={() => onExpand(row.blockIndex)}
+                  >
+                    展开 {row.collapsed.count} 行相同内容
+                  </button>
+                </div>
+              );
+            }
+
             return (
-              <div className="row row-collapsed" key={row.key} style={rowStyle}>
-                <button type="button" className="expand-btn" onClick={() => onExpand(row.blockIndex)}>
-                  展开 {row.collapsed.count} 行相同内容
-                </button>
+              <div
+                className={`row row-${row.kind}${isActive ? ' row-active' : ''}`}
+                key={row.key}
+                style={rowStyle}
+                data-block={row.blockIndex}
+              >
+                <div className="side side-left">
+                  <LineCell
+                    lineNumber={row.leftLine}
+                    text={row.leftLine !== null ? (leftLines[row.leftLine] ?? '') : null}
+                    segments={row.inline?.left}
+                    tokens={row.leftLine !== null ? leftHighlight?.[row.leftLine] : undefined}
+                    language={leftLanguage}
+                    onCommit={(line, value) => onEditLine('left', line, value)}
+                    editable
+                  />
+                </div>
+
+                <div className="middle">
+                  {block && isBlockAnchor(row, index) ? (
+                    <BlockActions block={block} onApply={onApply} active={isActive} />
+                  ) : (
+                    <div className="block-actions block-actions-spacer">
+                      <span className="kind-mark">{kindMark(row.kind)}</span>
+                    </div>
+                  )}
+                </div>
+
+                <div className="side side-right">
+                  <LineCell
+                    lineNumber={row.rightLine}
+                    text={row.rightLine !== null ? (rightLines[row.rightLine] ?? '') : null}
+                    segments={row.inline?.right}
+                    tokens={row.rightLine !== null ? rightHighlight?.[row.rightLine] : undefined}
+                    language={rightLanguage}
+                    onCommit={(line, value) => onEditLine('right', line, value)}
+                    editable
+                  />
+                </div>
               </div>
             );
-          }
-
-          return (
-            <div
-              className={`row row-${row.kind}${isActive ? ' row-active' : ''}`}
-              key={row.key}
-              style={rowStyle}
-              data-block={row.blockIndex}
-            >
-              <div className="side side-left">
-                <LineCell
-                  lineNumber={row.leftLine}
-                  text={row.leftLine !== null ? (leftLines[row.leftLine] ?? '') : null}
-                  segments={row.inline?.left}
-                  tokens={row.leftLine !== null ? leftHighlight?.[row.leftLine] : undefined}
-                  language={leftLanguage}
-                  onCommit={(line, value) => onEditLine('left', line, value)}
-                  editable
-                />
-              </div>
-
-              <div className="middle">
-                {block && isBlockAnchor(row, index) ? (
-                  <BlockActions block={block} onApply={onApply} active={isActive} />
-                ) : (
-                  <div className="block-actions block-actions-spacer">
-                    <span className="kind-mark">{kindMark(row.kind)}</span>
-                  </div>
-                )}
-              </div>
-
-              <div className="side side-right">
-                <LineCell
-                  lineNumber={row.rightLine}
-                  text={row.rightLine !== null ? (rightLines[row.rightLine] ?? '') : null}
-                  segments={row.inline?.right}
-                  tokens={row.rightLine !== null ? rightHighlight?.[row.rightLine] : undefined}
-                  language={rightLanguage}
-                  onCommit={(line, value) => onEditLine('right', line, value)}
-                  editable
-                />
-              </div>
-            </div>
-          );
-        })}
+          })}
+        </div>
       </div>
     </div>
   );

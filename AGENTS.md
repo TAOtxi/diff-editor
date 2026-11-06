@@ -160,7 +160,7 @@ operations.applyBlockOperation() → 新行数组 → reducer 写回 + 记录历
 - **不换行（默认）**：`uniformLayout`，行高恒为 `ROW_HEIGHT`，`indexAt` 就是一次除法。
 - **自动换行**：`wrappedLayout`，「字符列数 ÷ 每行列数」估出折行数，前缀和出偏移，`indexAt` 用二分查找。
 
-两栏**始终各占视口一半**，行宽恒为视口宽度，长行不会把某一栏撑宽。不换行时，`.diff-spacer` 比视口宽出「最长行文本宽 − 每侧可用宽」，只用来产生横向滚动条；滚动时 `DiffView` 把 `scrollLeft` 写进 `.diff-view` 的 CSS 变量 `--scroll-x`，`.row` 用 `left: var(--scroll-x)` 钉在视口内，`.line-text` 用 `translateX(-var(--scroll-x))` 反向平移，效果是两侧文本同步横滚、栏位和中缝不动。别把行宽改回按最长行撑开，那样两栏会失去 50/50。
+两栏**始终各占视口一半**，行宽恒为视口宽度，长行不会把某一栏撑宽。不换行时，`.diff-spacer` 比视口宽出「最长行文本宽 − 每侧可用宽」，只用来产生横向滚动条；滚动时 `DiffView` 把 `scrollLeft` 写进 `.diff-view` 的 CSS 变量 `--scroll-x`，行容器 `.diff-rows` 用 `position: sticky; left: 0` 钉在视口内，`.line-text` 用 `translateX(-var(--scroll-x))` 反向平移，效果是两侧文本同步横滚、栏位和中缝不动。栏位固定**必须用 sticky**，不能在 scroll 事件里改 `left`：事件比合成线程的滚动晚一帧以上，会出现栏位先跟着滚再归位的抖动。别把行宽改回按最长行撑开，那样两栏会失去 50/50。
 
 字宽用 canvas 实测（`measureFont`，jsdom 下自动退回 `FALLBACK_FONT_METRICS`）。`layout.ts` 里的 `ROW_HEIGHT` / `TAB_SIZE` / `MIDDLE_WIDTH` / `GUTTER_WIDTH` / `CELL_PADDING` 都是**和 CSS 对齐的硬约定**，改 CSS 必须同步改常量，否则换行行数会估错、行高不够导致文字重叠。CSS 里显式的 `tab-size: 4` 同理。
 
