@@ -138,9 +138,15 @@
   width: 100%;
 }
 
+/*
+ * 行宽恒为视口宽度（两栏各占一半，不随长行撑开）。
+ * 横向滚动时 spacer 被卷走，行用 left 跟随 scrollLeft 钉在视口里，
+ * 再由 .line-text 反向平移实现「只滚文本、不滚栏位」。
+ * --scroll-x 由 DiffView 的 onScroll 写到 .diff-view 上。
+ */
 .row {
   position: absolute;
-  left: 0;
+  left: var(--scroll-x, 0px);
   display: grid;
   grid-template-columns: 1fr 96px 1fr;
   align-items: stretch;
@@ -219,7 +225,9 @@
 }
 
 .line-text {
+  display: inline-block;
   white-space: pre;
+  transform: translateX(calc(-1 * var(--scroll-x, 0px)));
 }
 
 /*
@@ -227,6 +235,11 @@
  * 这里只负责让文本真的能折行——注意 .line-text 也要一起放开，
  * 否则内层 white-space: pre 会抵消 .line-content 的换行。
  */
+/* 换行模式没有横向滚动，忽略切换前可能残留的 --scroll-x */
+.diff-view.wrap .row {
+  left: 0;
+}
+
 .diff-view.wrap .cell {
   align-items: flex-start;
 }
@@ -241,7 +254,9 @@
 }
 
 .diff-view.wrap .line-text {
+  display: inline;
   white-space: pre-wrap;
+  transform: none;
 }
 
 .line-input {

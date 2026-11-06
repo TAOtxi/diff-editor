@@ -94,19 +94,21 @@ export function DiffView({
   );
 
   /**
-   * 不换行时把行撑到「最长行放得下」的宽度，横向滚动条由 .diff-view 的
-   * overflow 提供。两侧要各放一份最长行，所以是 contentWidth * 2。
+   * 两栏始终各占视口一半，行宽恒为视口宽度。
+   * 不换行时长行不再撑宽栏位，而是把超出部分做成横向滚动量：
+   * spacer 比视口宽出 overflowX，行容器 sticky 固定在视口内，
+   * 两侧文本按 scrollLeft 同步平移（见 handleScroll 与 CSS 的 --scroll-x）。
    */
-  const contentWidth = SIDE_CHROME + Math.ceil(maxUnits * metrics.narrow) + 4;
-  const rowWidth = wordWrap
-    ? viewport.width
-    : Math.max(viewport.width, contentWidth * 2 + MIDDLE_WIDTH);
+  const rowWidth = viewport.width;
+  const sideWidth = (viewport.width - MIDDLE_WIDTH) / 2;
+  const textWidth = Math.ceil(maxUnits * metrics.narrow) + 4;
+  const overflowX = wordWrap ? 0 : Math.max(0, textWidth - (sideWidth - SIDE_CHROME));
 
   /** 换行时每侧一行能容纳的半角字符数。 */
-  const columns = useMemo(() => {
-    const sideWidth = (viewport.width - MIDDLE_WIDTH) / 2;
-    return Math.max(MIN_COLUMNS, Math.floor((sideWidth - SIDE_CHROME) / metrics.narrow));
-  }, [viewport.width, metrics.narrow]);
+  const columns = useMemo(
+    () => Math.max(MIN_COLUMNS, Math.floor((sideWidth - SIDE_CHROME) / metrics.narrow)),
+    [sideWidth, metrics.narrow],
+  );
 
   const layout = useMemo<RowLayout>(
     () =>
@@ -148,7 +150,10 @@ export function DiffView({
 
   const handleScroll = useCallback(() => {
     const el = containerRef.current;
-    if (el) setScrollTop(el.scrollTop);
+    if (!el) return;
+    setScrollTop(el.scrollTop);
+    // 横向滚动只改 CSS 变量，不走 React 重渲染
+    el.style.setProperty('--scroll-x', `${el.scrollLeft}px`);
   }, []);
 
   const visible = useMemo(() => {
@@ -193,7 +198,7 @@ export function DiffView({
     >
       <div
         className="diff-spacer"
-        style={{ height: layout.totalHeight, width: layout.rowWidth }}
+        style={{ height: layout.totalHeight, width: layout.rowWidth + overflowX }}
       >
         {slice.map((row, i) => {
           const index = visible.first + i;

@@ -249,14 +249,17 @@ describe('App 长行显示', () => {
   // 200 个半角字符。兜底字宽 7.5px 时，容器 1200px、每侧可用 492px，一行放 65 列
   const longLine = 'x'.repeat(200);
 
-  it('不换行时把行撑到最长行宽度，横向可滚', async () => {
+  it('不换行时两栏仍各占一半，长行只产生横向滚动量', async () => {
     render(<App />);
     await loadBothSides(`a\n${longLine}\nc`, 'a\nshort\nc');
 
     const spacer = document.querySelector<HTMLElement>('.diff-spacer');
     expect(spacer).not.toBeNull();
-    // 两侧各放一份最长行：(60 + 1500 + 4) * 2 + 96
-    expect(spacer?.style.width).toBe('3224px');
+    // 滚动量 = 文本宽 (1500 + 4) - 每侧可用宽 (552 - 60) = 1012
+    expect(spacer?.style.width).toBe('2212px');
+    // 行宽不随长行撑开，始终等于视口宽，两栏各占一半
+    const row = document.querySelector<HTMLElement>('.row-conflict, .row-delete, .row-insert');
+    expect(row?.style.width).toBe('1200px');
     // 换行模式关闭时不应带 wrap 类
     expect(document.querySelector('.diff-view')?.classList.contains('wrap')).toBe(false);
   });

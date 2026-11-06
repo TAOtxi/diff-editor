@@ -160,7 +160,7 @@ operations.applyBlockOperation() → 新行数组 → reducer 写回 + 记录历
 - **不换行（默认）**：`uniformLayout`，行高恒为 `ROW_HEIGHT`，`indexAt` 就是一次除法。
 - **自动换行**：`wrappedLayout`，「字符列数 ÷ 每行列数」估出折行数，前缀和出偏移，`indexAt` 用二分查找。
 
-不换行时行宽按**最长行**算：`2 × 最长侧宽 + 中缝 96px`，横向滚动条由 `.diff-view` 的 `overflow: auto` 提供。行宽是显式写在行元素上的，所以`.row` 的 CSS 里**只有 `left` 没有 `right`**，别再补回去，否则行宽会被容器宽度约束死、横向滚不动。
+两栏**始终各占视口一半**，行宽恒为视口宽度，长行不会把某一栏撑宽。不换行时，`.diff-spacer` 比视口宽出「最长行文本宽 − 每侧可用宽」，只用来产生横向滚动条；滚动时 `DiffView` 把 `scrollLeft` 写进 `.diff-view` 的 CSS 变量 `--scroll-x`，`.row` 用 `left: var(--scroll-x)` 钉在视口内，`.line-text` 用 `translateX(-var(--scroll-x))` 反向平移，效果是两侧文本同步横滚、栏位和中缝不动。别把行宽改回按最长行撑开，那样两栏会失去 50/50。
 
 字宽用 canvas 实测（`measureFont`，jsdom 下自动退回 `FALLBACK_FONT_METRICS`）。`layout.ts` 里的 `ROW_HEIGHT` / `TAB_SIZE` / `MIDDLE_WIDTH` / `GUTTER_WIDTH` / `CELL_PADDING` 都是**和 CSS 对齐的硬约定**，改 CSS 必须同步改常量，否则换行行数会估错、行高不够导致文字重叠。CSS 里显式的 `tab-size: 4` 同理。
 
